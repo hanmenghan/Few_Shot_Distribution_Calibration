@@ -7,15 +7,14 @@ use_gpu = torch.cuda.is_available()
 
 
 
-def distribution_calibration(query, base_means, base_cov, k,alpha=0.21):
-    dist = []
-    for i in range(len(base_means)):
-        dist.append(np.linalg.norm(query-base_means[i]))
-    index = np.argpartition(dist, k)[:k]
-    mean = np.concatenate([np.array(base_means)[index], query[np.newaxis, :]])
-    calibrated_mean = np.mean(mean, axis=0)
-    calibrated_cov = np.mean(np.array(base_cov)[index], axis=0)+alpha
-
+def distribution_calibration(query, base_means, base_cov, k, alpha=0.21):
+    query = np.expand_dims(query, axis=1)
+    base_means = np.expand_dims(np.array(base_means), axis=0)
+    dist = np.linalg.norm(query - base_means, axis=2)
+    index = np.argpartition(dist, k, axis=1)[:, :k]
+    mean = np.concatenate([base_means[:, index][0], query], axis=1)
+    calibrated_mean = np.mean(mean, axis=1)
+    calibrated_cov = np.mean(np.array(base_cov)[index], axis=1)+alpha
     return calibrated_mean, calibrated_cov
 
 
@@ -69,11 +68,14 @@ if __name__ == '__main__':
         sampled_data = []
         sampled_label = []
         num_sampled = int(750/n_shot)
-        for i in range(n_lsamples):
-            mean, cov = distribution_calibration(support_data[i], base_means, base_cov, k=2)
-            sampled_data.append(np.random.multivariate_normal(mean=mean, cov=cov, size=num_sampled))
-            sampled_label.extend([support_label[i]]*num_sampled)
+        
+        mean, cov = distribution_calibration(support_data, base_means, base_cov, k=2)
+        rng = np.random.default_rng()
+        for n_lsample in range(n_lsamples):
+            sampled_data.append(rng.multivariate_normal(mean=mean[n_lsample, :], cov=cov[n_lsample, :], size=num_sampled, method='cholesky'))
+
         sampled_data = np.concatenate([sampled_data[:]]).reshape(n_ways * n_shot * num_sampled, -1)
+        sampled_label = np.tile(np.expand_dims(support_label, axis=1), num_sampled).reshape(n_ways * n_shot * num_sampled)
         X_aug = np.concatenate([support_data, sampled_data])
         Y_aug = np.concatenate([support_label, sampled_label])
         # ---- train classifier
