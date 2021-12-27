@@ -69,10 +69,10 @@ if __name__ == '__main__':
         sampled_label = []
         num_sampled = int(750/n_shot)
         
-        mean, cov = distribution_calibration(support_data, base_means, base_cov, k=2)
+        means, covs = distribution_calibration(support_data, base_means, base_cov, k=2)
         rng = np.random.default_rng()
         for n_lsample in range(n_lsamples):
-            sampled_data.append(rng.multivariate_normal(mean=mean[n_lsample, :], cov=cov[n_lsample, :], size=num_sampled, method='cholesky'))
+            sampled_data.append(rng.multivariate_normal(mean=means[n_lsample, :], cov=covs[n_lsample, :], size=num_sampled, method='cholesky'))
 
         sampled_data = np.concatenate([sampled_data[:]]).reshape(n_ways * n_shot * num_sampled, -1)
         sampled_label = np.tile(np.expand_dims(support_label, axis=1), num_sampled).reshape(n_ways * n_shot * num_sampled)
